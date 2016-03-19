@@ -1,14 +1,24 @@
 #include <Wire.h>
+#include <SdFat.h>
+#include <SdFatUtil.h>
 
+#define DEBUGGING true  // debugging flag, enables serial output
 #define MAG_ADDR 0x0E   // address for magnetometer
 #define MPU_ADDR 0x68   // address for MPU_6050
+#define SDCardPin 10    // Pin number for SD card
+
+#define BASE_NAME "IMU_"
+
+SdFat sd;
+SdFile myFile;
+String filename = BASE_NAME "00.TXT";
 
 void setup(){
   Wire.begin();
   Serial.begin(115200);  // default is 9600
   scanI2C();
   startMag();
-  start_6050();
+  startIMU();
 }
 
 void loop(){
@@ -18,7 +28,53 @@ void loop(){
   delay(1000);
 }
 
-void start_6050(){
+void startSDCard(){
+  // Initializes a microSD card
+  // Product page with datasheet at https://www.sparkfun.com/products/544
+  pinMode(SDCardPin, OUTPUT);
+  if(!sd.begin(SDCardPin, SPI_FULL_SPEED)){
+    // Card has failed to initialize, we could attempt to format or fix it here.
+    Serial.println(F("SD Card Failed."));
+  } else {
+    // Card was successfully initilized, create a new file to write into.
+    uint8_t BNAME_SIZE = sizeof(BASE_NAME) - 1;
+
+    if(BNAME_SIZE > 6){
+      // SdFat library has a max filename length
+      Serial.println(F("Error: StartSDCard(): BASE_NAME too long.  Using default."));
+//      "IMU_00.TXT".toCharArray(filename, 11);
+      filename = "IMU_00.TXT";
+      BNAME_SIZE = sizeof("IMU_");
+    }
+
+    char cfilename[13];
+    filename.toCharArray(cfilename, 13);
+    // Check if the filename already exists, and if so, increment the filename.
+    while(sd.exists(cfilename)){
+      Serial.print(filename);
+      Serial.println(" already exists..");
+      // If the last number is not a 9, increment it
+      if(filename[BNAME_SIZE + 1] != '9'){
+        filename[BNAME_SIZE + 1]++;
+      // Else if the most significant number is not a 9, increment both
+      } else if(filename[BNAME_SIZE] != '9'){
+        filename[BNAME_SIZE]++;
+        filename[BNAME_SIZE + 1]++;
+      // Else if we're at 99 files, use a default filename.
+      } else {
+        Serial.println(F("Error: StartSDCard(): Too many files!  Using default filename."));
+//        filename[BNAME_SIZE] = "A0.TXT";
+      }
+    }
+    // Optional debugging output
+    if(DEBUGGING){
+      Serial.print(F("Creating file: "));
+      Serial.println(filename);
+    }
+  }
+}
+
+void startIMU(){
   // Initializes MPU-6050 accelerometer/gyro
   // Datasheet at https://cdn.sparkfun.com/datasheets/Components/General%20IC/PS-MPU-6000A.pdf
 
@@ -95,11 +151,11 @@ String readMag(){
   
   Wire.requestFrom(MAG_ADDR, 6);    // 2 bytes per x,y,z axis
   // Receieve the 6 bytes and sort them into the x,y,z axis vars
-  if(6<=Wire.available()){
+//  if(6<=Wire.available()){
     x = Wire.read()<<8 | Wire.read();   // First byte is MSB_x, second is LSB_x
     y = Wire.read()<<8 | Wire.read();
     z = Wire.read()<<8 | Wire.read();
-  }
+//  }
   String result = String("MagX: ")+x+String(", MagY: ")+y+String(", MagZ: ")+z;
   return result;
 }
