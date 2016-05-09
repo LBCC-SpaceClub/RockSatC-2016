@@ -10,19 +10,18 @@ using micros = std::chrono::milliseconds;
 
 int main(void)
 {
-	ofstream log("logFile.txt");
+	// Create a filename from the date and time
+	time_t t = time(0);
+	struct tm * now = localtime ( &t );
+	char filename [80];
+	strftime (filename, 80, "dlog_%F_%R.txt", now);
+
+	ofstream log(filename);
 	if(log.is_open()){
 		cout << "Log file successfully opened." << endl;
+	} else {
+		cout << "Emergency: log file cannot be opened." << endl;
 	}
-
-	/*
-	for(int i=0; i<10; i++){
-		now_time = hr_clock::now();
-		cout 	<< i << "="
-			<< std::chrono::duration_cast<micros>(now_time - start_time).count()
-			<< " us.\n";
-	}
-	*/
 
 	// Each ADC can read up to 8 detectors
         mcp3008Spi adc_0("/dev/spidev0.0", SPI_MODE_0, 1000000, 8);
@@ -33,20 +32,16 @@ int main(void)
         unsigned char data[3];	// a buffer to store SPI data in
         int val;		// a buffer to store a single SPI result
         string line;		// a buffer to store the combined SPI results
+
 	// Timestamp stuff
         hr_clock::time_point start_time = hr_clock::now();
         unsigned long cur_time = std::chrono::duration_cast<micros>(hr_clock::now() - start_time).count();
 
 	// Write a header to the log file.  This should be improved to a datetime stamp.
-        log << "Log begins at "+to_string(cur_time)+" miliseconds.\n";
+        log << "Log begins at "+to_string(cur_time)+" microseconds.\n";
 
-	// Collect a certain number of samples from the ADC's
-	//        const unsigned long numSamples = 1000;
-	//        for(unsigned long s=0; s<numSamples; s++){
 	while(cur_time < run_time){
-		// Starting timestamp
-		//now_time = hr_clock::now();
-		//now_time = std::chrono::duration_cast<micros>::now();
+		// Refresh the current timestamp
 		cur_time = std::chrono::duration_cast<micros>(hr_clock::now() - start_time).count();
 		log << to_string(cur_time)+',';
         	for(int i=0; i<12; i++){
@@ -63,6 +58,7 @@ int main(void)
         		val = ((data[1] << 8) & 0b1100000000) | (data[2] & 0xff);
         		line.append(to_string(val)+',');
         	}
+		// Visible output here is only for debugging
 		//cout << "Sample " << s << " = " << line << endl;
 		log << line + '\n';
 		line = "";

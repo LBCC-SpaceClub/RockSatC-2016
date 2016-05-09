@@ -1,0 +1,10 @@
+Installation tips/reminders:
+
+If compiling from the command line, remember to include the mcp3008 library,
+and compile using c++11 or later.
+g++ -std=c++11 mcp3008Spi.cpp det_main.cpp -o det_main
+
+To run the compiled code:
+./det_main
+
+Note: The log files use UTC timestamps.
